@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Live Monitor - Kitchen Hygiene</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .btn-primary { background: #667eea; color: white; }
+        .btn-danger { background: #e53e3e; color: white; }
+        .btn-success { background: #48bb78; color: white; }
+        
+        .camera-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .video-container {
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+            margin-bottom: 15px;
+        }
+        
+        #adminVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        
+        .camera-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .split-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+        
+        .violations-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .violation-item {
+            background: #f7fafc;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #e53e3e;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .detection-status {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .detection-badge {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .detection-badge.compliant { background: #c6f6d5; color: #22543d; }
+        .detection-badge.violation { background: #fed7d7; color: #c53030; }
+        
+        @media (max-width: 768px) {
+            .split-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎥 Admin Live Monitoring</h1>
+            <div>
+                <button class="btn btn-primary" onclick="location.href='/admin/dashboard'">📊 Dashboard</button>
+                <button class="btn btn-danger" onclick="logout()">🚪 Logout</button>
+            </div>
+        </div>
+        
+        <div class="split-layout">
+            <div class="camera-section">
+                <h3>📹 Live Camera Feed</h3>
+                <div class="video-container">
+                    <video id="adminVideo" autoplay playsinline muted></video>
+                </div>
+                <div class="camera-controls">
+                    <button class="btn btn-success" onclick="startCamera()">▶️ Start Camera</button>
+                    <button class="btn btn-danger" onclick="stopCamera()">⏹️ Stop Camera</button>
+                </div>
+                <div class="detection-status" id="detectionStatus">
+                    <div class="detection-badge">🧢 Cap: Waiting</div>
+                    <div class="detection-badge">🧤 Gloves: Waiting</div>
+                    <div class="detection-badge">🧼 Surface: Waiting</div>
+                </div>
+            </div>
+            
+            <div class="violations-panel">
+                <h3>⚠️ Live Violations</h3>
+                <div id="violationsFeed">
+                    <p style="text-align: center; color: #999;">Start camera to monitor</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let video = null;
+        let stream = null;
+        let monitoringInterval = null;
+        
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480, facingMode: "user" }
+                });
+                
+                video = document.getElementById('adminVideo');
+                video.srcObject = stream;
+                await video.play();
+                
+                startMonitoring();
+                updateDetectionStatus('Camera Active', 'compliant');
+            } catch (error) {
+                alert('Camera access denied. Please click the camera icon in address bar and select "Allow"');
+                console.error(error);
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            if (monitoringInterval) clearInterval(monitoringInterval);
+        }
+        
+        function startMonitoring() {
+            monitoringInterval = setInterval(() => {
+                if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
+                    simulateDetection();
+                }
+            }, 3000);
+        }
+        
+        function simulateDetection() {
+            const employees = ['Rahul Sharma', 'Amit Verma', 'Sneha Reddy'];
+            const randomEmployee = employees[Math.floor(Math.random() * employees.length)];
+            
+            const capOK = Math.random() > 0.3;
+            const glovesOK = Math.random() > 0.2;
+            const surfaceOK = Math.random() > 0.15;
+            
+            updateDetectionStatus(capOK ? 'Cap: OK' : 'Cap: MISSING!', capOK ? 'compliant' : 'violation', 0);
+            updateDetectionStatus(glovesOK ? 'Gloves: OK' : 'Gloves: MISSING!', glovesOK ? 'compliant' : 'violation', 1);
+            updateDetectionStatus(surfaceOK ? 'Surface: Clean' : 'Surface: DIRTY!', surfaceOK ? 'compliant' : 'violation', 2);
+            
+            if (!capOK) addViolation(randomEmployee, 'No Cap');
+            if (!glovesOK) addViolation(randomEmployee, 'No Gloves');
+            if (!surfaceOK) addViolation(randomEmployee, 'Surface Issue');
+        }
+        
+        function updateDetectionStatus(text, status, index) {
+            const badges = document.querySelectorAll('.detection-badge');
+            if (badges[index]) {
+                badges[index].textContent = text;
+                badges[index].className = `detection-badge ${status}`;
+            }
+        }
+        
+        async function addViolation(employee, type) {
+            const feed = document.getElementById('violationsFeed');
+            const time = new Date().toLocaleTimeString();
+            
+            const item = document.createElement('div');
+            item.className = 'violation-item';
+            item.innerHTML = `
+                <div><strong>${time}</strong></div>
+                <div>👤 ${employee}</div>
+                <div>⚠️ ${type}</div>
+            `;
+            
+            feed.insertBefore(item, feed.firstChild);
+            while (feed.children.length > 20) feed.removeChild(feed.lastChild);
+            
+            // Log to database
+            try {
+                await fetch('/api/log-violation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employee_id: getEmpId(employee),
+                        type: type,
+                        severity: 'medium'
+                    })
+                });
+            } catch(e) { console.error(e); }
+        }
+        
+        function getEmpId(name) {
+            const map = {'Rahul Sharma': 'EMP001', 'Amit Verma': 'EMP002', 'Sneha Reddy': 'EMP003'};
+            return map[name] || 'EMP001';
+        }
+        
+        async function loadViolations() {
+            try {
+                const res = await fetch('/api/get-violations');
+                const violations = await res.json();
+                const feed = document.getElementById('violationsFeed');
+                if (violations.length > 0 && feed.children.length < 5) {
+                    feed.innerHTML = violations.slice(0, 15).map(v => `
+                        <div class="violation-item">
+                            <div><strong>${new Date(v.timestamp).toLocaleTimeString()}</strong></div>
+                            <div>👤 ${v.employee_name}</div>
+                            <div>⚠️ ${v.type}</div>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) { console.error(e); }
+        }
+        
+        function logout() {
+            stopCamera();
+            window.location.href = '/logout';
+        }
+        
+        window.addEventListener('load', () => {
+            setTimeout(() => startCamera(), 500);
+            loadViolations();
+            setInterval(loadViolations, 5000);
+        });
+    </script>
+</body>
+</html>

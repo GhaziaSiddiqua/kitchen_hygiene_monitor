@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Camera - Hygiene Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .video-container {
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            margin-bottom: 15px;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+        
+        #detection-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-start { background: #48bb78; color: white; }
+        .btn-stop { background: #e53e3e; color: white; }
+        .btn-voice { background: #ed8936; color: white; }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .status-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .status-value {
+            font-size: 24px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+        
+        .status-value.compliant { background: #c6f6d5; color: #22543d; }
+        .status-value.violation { background: #fed7d7; color: #c53030; }
+        
+        .violations-list {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .violation-item {
+            background: #f7fafc;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .voice-toggle {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .voice-toggle.active {
+            background: #48bb78;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🎥 Live Hygiene Monitoring</h2>
+            <div>👤 {{ name }} ({{ employee_id }})</div>
+            <button class="btn-stop" onclick="logout()">🚪 Logout</button>
+        </div>
+        
+        <div class="video-container">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="detection-canvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-start" onclick="startCamera()">📷 Start Camera</button>
+            <button class="btn btn-stop" onclick="stopCamera()">⏹️ Stop Camera</button>
+            <button class="voice-toggle" id="voice-toggle" onclick="toggleVoice()">🔊 Voice Alerts: ON</button>
+        </div>
+        
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>🧢 Cap Detection</h3>
+                <div class="status-value checking" id="cap-status">Not Started</div>
+            </div>
+            <div class="status-card">
+                <h3>🧤 Gloves Detection</h3>
+                <div class="status-value checking" id="gloves-status">Not Started</div>
+            </div>
+            <div class="status-card">
+                <h3>🧼 Surface Cleanliness</h3>
+                <div class="status-value checking" id="surface-status">Not Started</div>
+            </div>
+        </div>
+        
+        <div class="violations-list">
+            <h3>⚠️ Recent Violations</h3>
+            <div id="violation-items">
+                <p style="color: #999; text-align: center;">Start camera to begin monitoring</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let video = null;
+        let stream = null;
+        let monitoringInterval = null;
+        let canvas = null;
+        let ctx = null;
+        let voiceEnabled = true;
+        let lastViolations = {};
+        let lastSpoken = {};
+        
+        const employeeId = "{{ employee_id }}";
+        const synth = window.speechSynthesis;
+        
+        function speak(message) {
+            if (!voiceEnabled) return;
+            
+            // Don't repeat same message too often
+            const now = Date.now();
+            if (lastSpoken[message] && now - lastSpoken[message] < 8000) return;
+            lastSpoken[message] = now;
+            
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 0.9;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+            synth.speak(utterance);
+        }
+        
+        function toggleVoice() {
+            voiceEnabled = !voiceEnabled;
+            const btn = document.getElementById('voice-toggle');
+            if (voiceEnabled) {
+                btn.textContent = '🔊 Voice Alerts: ON';
+                btn.classList.add('active');
+                speak('Voice alerts enabled');
+            } else {
+                btn.textContent = '🔇 Voice Alerts: OFF';
+                btn.classList.remove('active');
+            }
+        }
+        
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480, facingMode: "user" }
+                });
+                
+                video = document.getElementById('video');
+                video.srcObject = stream;
+                await video.play();
+                
+                // Setup canvas for drawing
+                canvas = document.getElementById('detection-canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx = canvas.getContext('2d');
+                
+                startMonitoring();
+                speak('Camera started. Monitoring hygiene compliance.');
+                
+            } catch (error) {
+                alert('Camera access denied. Please allow camera permissions.');
+                console.error(error);
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            if (monitoringInterval) clearInterval(monitoringInterval);
+            
+            // Clear canvas
+            if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+        
+        function startMonitoring() {
+            monitoringInterval = setInterval(() => {
+                if (video && video.readyState === video.HAVE_ENOUGH_DATA) {
+                    detectViolations();
+                }
+            }, 2000);
+        }
+        
+        function drawDetectionBox(x, y, width, height, color, label) {
+            if (!ctx) return;
+            
+            // Scale coordinates based on video size
+            const scaleX = canvas.width / video.videoWidth;
+            const scaleY = canvas.height / video.videoHeight;
+            
+            ctx.beginPath();
+            ctx.rect(x * scaleX, y * scaleY, width * scaleX, height * scaleY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Draw label background
+            ctx.fillStyle = color;
+            ctx.fillRect(x * scaleX, (y * scaleY) - 25, width * scaleX, 25);
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            ctx.fillText(label, (x * scaleX) + 5, (y * scaleY) - 8);
+        }
+        
+        async function detectViolations() {
+            if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+            
+            // Clear previous drawings
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Simulate AI detection with visual feedback
+            // In production, replace with actual MediaPipe detection
+            
+            // Head/cap detection (top of frame)
+            const capDetected = Math.random() > 0.25;
+            const glovesDetected = Math.random() > 0.2;
+            const surfaceClean = Math.random() > 0.15;
+            
+            // Draw detection boxes
+            if (!capDetected) {
+                drawDetectionBox(200, 50, 240, 180, '#ff0000', '❌ CAP MISSING');
+            } else {
+                drawDetectionBox(200, 50, 240, 180, '#00ff00', '✓ CAP DETECTED');
+            }
+            
+            if (!glovesDetected) {
+                drawDetectionBox(50, 300, 150, 120, '#ff0000', '❌ GLOVE MISSING');
+                drawDetectionBox(440, 300, 150, 120, '#ff0000', '❌ GLOVE MISSING');
+            } else {
+                drawDetectionBox(50, 300, 150, 120, '#00ff00', '✓ GLOVE DETECTED');
+                drawDetectionBox(440, 300, 150, 120, '#00ff00', '✓ GLOVE DETECTED');
+            }
+            
+            // Update status UI
+            updateStatus('cap', capDetected);
+            updateStatus('gloves', glovesDetected);
+            updateStatus('surface', surfaceClean);
+            
+            // Report violations with voice
+            if (!capDetected) {
+                await reportViolation('No Cap', 'high');
+                speak('Warning! Cap is missing. Please wear a cap.');
+            }
+            if (!glovesDetected) {
+                await reportViolation('No Gloves', 'high');
+                speak('Warning! Gloves are missing. Please wear gloves.');
+            }
+            if (!surfaceClean) {
+                await reportViolation('Surface Cleanliness Issue', 'medium');
+                speak('Alert! Surface cleanliness issue detected. Please clean the area.');
+            }
+        }
+        
+        function updateStatus(type, isCompliant) {
+            const element = document.getElementById(`${type}-status`);
+            if (isCompliant) {
+                element.className = 'status-value compliant';
+                element.textContent = '✅ Compliant';
+            } else {
+                element.className = 'status-value violation';
+                element.textContent = '❌ Violation';
+            }
+        }
+        
+        async function reportViolation(type, severity) {
+            const now = Date.now();
+            const lastTime = lastViolations[type] || 0;
+            if (now - lastTime < 5000) return;
+            lastViolations[type] = now;
+            
+            try {
+                const response = await fetch('/api/log-violation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        employee_id: employeeId,
+                        type: type,
+                        severity: severity
+                    })
+                });
+                
+                if (response.ok) {
+                    addViolationToList(type, severity);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        function addViolationToList(type, severity) {
+            const container = document.getElementById('violation-items');
+            const time = new Date().toLocaleTimeString();
+            
+            if (container.children.length === 1 && container.children[0].textContent.includes('Start camera')) {
+                container.innerHTML = '';
+            }
+            
+            const item = document.createElement('div');
+            item.className = 'violation-item';
+            item.innerHTML = `
+                <span>${time}</span>
+                <span style="font-weight: bold;">${type}</span>
+                <span style="color: #e53e3e;">⚠️</span>
+            `;
+            container.insertBefore(item, container.firstChild);
+            
+            while (container.children.length > 15) {
+                container.removeChild(container.lastChild);
+            }
+        }
+        
+        function logout() {
+            stopCamera();
+            window.location.href = '/logout';
+        }
+        
+        window.addEventListener('load', () => {
+            setTimeout(() => startCamera(), 500);
+        });
+    </script>
+</body>
+</html>

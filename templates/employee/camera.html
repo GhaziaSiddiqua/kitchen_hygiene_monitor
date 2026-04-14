@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Live Camera Monitoring{% endblock %}
+
+{% block content %}
+<div class="camera-container">
+    <div class="header">
+        <h2>Live Hygiene Monitoring</h2>
+        <p>Welcome, {{ employee_name }} (ID: {{ employee_id }})</p>
+        <button onclick="logout()" class="logout-btn">Logout</button>
+    </div>
+    
+    <div class="camera-wrapper">
+        <video id="webcam" autoplay playsinline width="640" height="480"></video>
+        <canvas id="output-canvas" width="640" height="480"></canvas>
+    </div>
+    
+    <div class="detection-status">
+        <div class="status-card">
+            <h3>Cap Detection</h3>
+            <div id="cap-status" class="status-badge warning">Checking...</div>
+        </div>
+        <div class="status-card">
+            <h3>Gloves Detection</h3>
+            <div id="gloves-status" class="status-badge warning">Checking...</div>
+        </div>
+        <div class="status-card">
+            <h3>Surface Cleanliness</h3>
+            <div id="surface-status" class="status-badge warning">Checking...</div>
+        </div>
+    </div>
+    
+    <div class="violation-log">
+        <h3>Recent Violations</h3>
+        <ul id="violation-list"></ul>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="{{ url_for('static', filename='js/facemesh.js') }}"></script>
+<script src="{{ url_for('static', filename='js/violations.js') }}"></script>
+<script>
+    const employeeId = "{{ employee_id }}";
+    
+    function logout() {
+        window.location.href = "/logout";
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>Hygiene Monitoring Dashboard</h1>
+        <div class="header-actions">
+            <button onclick="exportToPDF()" class="export-btn">📄 Export to PDF</button>
+            <button onclick="location.href='/admin/monitor'" class="monitor-btn">🎥 Live Monitor</button>
+            <button onclick="logout()" class="logout-btn">Logout</button>
+        </div>
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>Total Violations</h3>
+            <div class="stat-number" id="total-violations">0</div>
+        </div>
+        <div class="stat-card">
+            <h3>Today's Violations</h3>
+            <div class="stat-number" id="today-violations">0</div>
+        </div>
+        <div class="stat-card">
+            <h3>No Cap</h3>
+            <div class="stat-number" id="no-cap-count">0</div>
+        </div>
+        <div class="stat-card">
+            <h3>No Gloves</h3>
+            <div class="stat-number" id="no-gloves-count">0</div>
+        </div>
+    </div>
+    
+    <div class="charts-container">
+        <div class="chart-box">
+            <h3>Violations by Type</h3>
+            <canvas id="violations-chart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>Employee Ranking</h3>
+            <canvas id="employee-chart"></canvas>
+        </div>
+    </div>
+    
+    <div class="violations-table-container">
+        <h3>Recent Violations</h3>
+        <table id="violations-table" class="violations-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Employee Name</th>
+                    <th>Department</th>
+                    <th>Violation Type</th>
+                    <th>Severity</th>
+                </tr>
+            </thead>
+            <tbody id="violations-table-body">
+                <!-- Dynamic content -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

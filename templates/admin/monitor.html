@@ -1,0 +1,174 @@
+<!-- templates/admin/monitor.html -->
+{% extends "base.html" %}
+
+{% block title %}Admin Live Monitor{% endblock %}
+
+{% block content %}
+<div class="monitor-container">
+    <div class="header">
+        <h1>Admin Live Monitoring</h1>
+        <div class="header-actions">
+            <button onclick="location.href='/admin/dashboard'" class="dashboard-btn">📊 Dashboard</button>
+            <button onclick="logout()" class="logout-btn">Logout</button>
+        </div>
+    </div>
+    
+    <div class="live-feeds">
+        <div class="feed-card">
+            <h3>Employee Camera Feed</h3>
+            <video id="webcam" autoplay playsinline width="640" height="480"></video>
+            <canvas id="output-canvas" width="640" height="480" style="display: none;"></canvas>
+        </div>
+        
+        <div class="violations-panel">
+            <h3>Live Violations Feed</h3>
+            <div id="live-violations" class="violations-scroll">
+                <p>Waiting for violations...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script>
+    let faceMesh;
+    let hands;
+    let camera;
+    
+    function logout() {
+        window.location.href = "/logout";
+    }
+    
+    // Simple camera for admin view (no violation reporting)
+    async function setupCamera() {
+        const video = document.getElementById('webcam');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+        } catch (error) {
+            console.error('Camera error:', error);
+        }
+    }
+    
+    // Poll for recent violations
+    async function loadRecentViolations() {
+        try {
+            const response = await fetch('/api/get-violations');
+            const violations = await response.json();
+            const container = document.getElementById('live-violations');
+            
+            if (violations.length === 0) {
+                container.innerHTML = '<p>No violations yet</p>';
+                return;
+            }
+            
+            container.innerHTML = violations.slice(0, 20).map(v => `
+                <div class="violation-item ${v.severity}">
+                    <span class="time">${new Date(v.timestamp).toLocaleTimeString()}</span>
+                    <span class="employee">${v.employee_name}</span>
+                    <span class="type">${v.type}</span>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading violations:', error);
+        }
+    }
+    
+    setupCamera();
+    loadRecentViolations();
+    setInterval(loadRecentViolations, 3000);
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .monitor-container {
+        padding: 20px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+    
+    .live-feeds {
+        display: grid;
+        grid-template-columns: 1fr 400px;
+        gap: 20px;
+    }
+    
+    .feed-card {
+        background: #f7f7f7;
+        padding: 20px;
+        border-radius: 10px;
+    }
+    
+    .violations-panel {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 20px;
+    }
+    
+    .violations-scroll {
+        height: 480px;
+        overflow-y: auto;
+    }
+    
+    .violation-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        display: flex;
+        gap: 10px;
+        font-size: 14px;
+    }
+    
+    .violation-item.high {
+        background: #fed7d7;
+        border-left: 4px solid #e53e3e;
+    }
+    
+    .violation-item.medium {
+        background: #feebc8;
+        border-left: 4px solid #ed8936;
+    }
+    
+    .time {
+        font-family: monospace;
+        font-weight: bold;
+    }
+    
+    .employee {
+        font-weight: bold;
+    }
+    
+    .type {
+        color: #666;
+    }
+    
+    button {
+        padding: 10px 20px;
+        margin-left: 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    
+    .dashboard-btn {
+        background: #4299e1;
+        color: white;
+    }
+    
+    .logout-btn {
+        background: #e53e3e;
+        color: white;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,196 @@
+/* static/css/style.css */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: #f5f5f5;
+}
+
+/* Camera Page Styles */
+.camera-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.header h2 {
+    color: #333;
+}
+
+.camera-wrapper {
+    position: relative;
+    margin-bottom: 30px;
+    background: #000;
+    border-radius: 10px;
+    overflow: hidden;
+    min-height: 480px;
+}
+
+#webcam {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+    transform: scaleX(-1);
+    /* Mirror the webcam feed */
+}
+
+#output-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: 640px;
+    transform: scaleX(-1);
+    z-index: 1;
+}
+
+.detection-status {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.status-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.status-card h3 {
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-top: 10px;
+    font-weight: bold;
+}
+
+.status-badge.success {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.status-badge.warning {
+    background: #feebc8;
+    color: #7b341e;
+}
+
+.status-badge.violation {
+    background: #fed7d7;
+    color: #742a2a;
+}
+
+.status-badge.no-face {
+    background: #e2e8f0;
+    color: #4a5568;
+}
+
+.violation-log {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.violation-log h3 {
+    margin-bottom: 15px;
+    color: #333;
+}
+
+#violation-list {
+    list-style: none;
+    margin-top: 10px;
+}
+
+#violation-list li {
+    padding: 10px;
+    margin-bottom: 5px;
+    background: #f7f7f7;
+    border-radius: 5px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.timestamp {
+    font-family: monospace;
+    color: #666;
+    font-size: 12px;
+}
+
+.violation-type {
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.violation-type.high {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.violation-type.medium {
+    background: #feebc8;
+    color: #c05621;
+}
+
+.violation-type.low {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.logout-btn {
+    padding: 10px 20px;
+    background: #e53e3e;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.logout-btn:hover {
+    background: #c53030;
+}
+
+button {
+    transition: all 0.3s ease;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .detection-status {
+        grid-template-columns: 1fr;
+    }
+    
+    .camera-wrapper {
+        min-height: 300px;
+    }
+    
+    .header {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
